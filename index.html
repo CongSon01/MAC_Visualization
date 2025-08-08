@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MAC Project - Interactive Hyperspherical Visualization</title>
+  <link rel="stylesheet" href="styles.css" />
+  
+  <!-- Import map for Three.js modules -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+      "three/examples/jsm/controls/OrbitControls": "https://unpkg.com/three@0.157.0/examples/jsm/controls/OrbitControls.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="project-info">
+        <div class="logo-section">
+          <img src="logoGE.png" alt="Université Gustave Eiffel" class="university-logo" />
+          <div class="project-title">
+            <h1>MAC Project</h1>
+            <div class="credits">
+              <p><strong>Developed by:</strong> Cong-Son DUONG</p>
+              <p><strong>Supervised by:</strong> Seçil ERCAN & Mahdi ZARGAYOUNA</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theme-controls">
+        <a href="#" id="report-link" class="report-btn" target="_blank" title="View Internship Report">
+          📄 Internship Report
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="controls">
+      <div class="panel">
+        <h2>Simulation Controls</h2>
+        <div class="control">
+          <label for="numPoints">Points per class: <span id="numPointsVal">100</span></label>
+          <input type="range" id="numPoints" min="10" max="1000" step="10" value="100" />
+        </div>
+        <div class="control">
+          <label for="kappa">κ (vMF concentration): <span id="kappaVal">15</span></label>
+          <input type="range" id="kappa" min="0" max="200" step="1" value="15" />
+        </div>
+        <div class="control">
+          <label for="r">Margin parameter r: <span id="rVal">0.8</span></label>
+          <input type="range" id="r" min="0.1" max="0.9" step="0.05" value="0.8" />
+          <small>Controls geometric separation (r × D_max)</small>
+        </div>
+        <div class="control">
+          <label for="meanLr">Mean learning rate: <span id="meanLrVal">0.02</span></label>
+          <input type="range" id="meanLr" min="0.005" max="0.1" step="0.005" value="0.02" />
+        </div>
+        <div class="control">
+          <label for="noise">Noise (anneal): <span id="noiseVal">0.1</span></label>
+          <input type="range" id="noise" min="0" max="0.2" step="0.005" value="0.1" />
+        </div>
+
+        <div class="buttons">
+          <button id="btnInit">Reset</button>
+          <button id="btnStart">Start</button>
+          <button id="btnPause">Pause</button>
+        </div>
+      </div>
+
+      <div class="panel metrics">
+        <div id="metrics">
+          <div><strong>Computing...</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="viewport">
+      <canvas id="scene"></canvas>
+      <div class="overlay-legend">
+        <div class="legend-block">
+          <div class="legend-title">Class (Labels)</div>
+          <div class="legend-row"><span class="legend-swatch c0"></span> Benign</div>
+          <div class="legend-row"><span class="legend-swatch c1"></span> DoS</div>
+          <div class="legend-row"><span class="legend-swatch c2"></span> Recon</div>
+          <div class="legend-row"><span class="legend-swatch c3"></span> Others</div>
+        </div>
+        <div class="legend-block">
+          <div class="legend-title">Markers</div>
+          <div class="legend-row">▲ HPC</div>
+          <div class="legend-row">■ Power</div>
+          <div class="legend-row">⬤ Traffic</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Cong-Son DUONG | Internship report</span>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
