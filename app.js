@@ -108,6 +108,10 @@ let points = [];
 function initPoints(){
   points = [];
   
+  // Mobile optimization: reduce point count on slower devices
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const actualPerClass = isMobile ? Math.min(state.perClass, 150) : state.perClass; // Limit points on mobile
+  
   // Create initial mixed clustering - all classes start close together
   // This simulates real data where different classes might initially be mixed
   const mixedCenters = [
@@ -117,7 +121,7 @@ function initPoints(){
   ];
   
   for (let c = 0; c < state.classes; c++){
-    for (let i = 0; i < state.perClass; i++){
+    for (let i = 0; i < actualPerClass; i++){
       const ds = i % 3; // 0:HPC, 1:Power, 2:Traffic
       
       // Initially sample around mixed centers instead of class means
@@ -128,7 +132,7 @@ function initPoints(){
       points.push({pos: p, cls: c, ds});
     }
   }
-  console.log(`✅ Generated ${points.length} points with initial mixed clustering`);
+  console.log(`✅ Generated ${points.length} points with initial mixed clustering (mobile optimized: ${isMobile})`);
 }
 
 // Function to re-cluster existing points around their current class means
@@ -478,15 +482,25 @@ function makeRenderer(){
       throw new Error('Canvas element "scene" not found');
     }
     
-    renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Mobile optimization: reduce antialias and pixel ratio for better performance
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const pixelRatio = isMobile ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2);
+    
+    renderer = new THREE.WebGLRenderer({
+      canvas, 
+      antialias: !isMobile, // Disable antialias on mobile for better performance
+      alpha: true,
+      powerPreference: isMobile ? "low-power" : "high-performance"
+    });
+    
+    renderer.setPixelRatio(pixelRatio);
     
     // Set consistent light theme background
     renderer.setClearColor(0xffffff, 1.0);
     
     onResize();
     window.addEventListener('resize', onResize);
-    console.log('✅ Renderer created with light theme background');
+    console.log('✅ Renderer created with mobile optimizations');
   } catch (error) {
     console.error('❌ Error creating renderer:', error);
     throw error;
@@ -515,11 +529,26 @@ function makeScene(){
       throw new Error('Renderer not initialized');
     }
     
+    // Mobile-optimized controls
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.enableZoom = true;
     controls.enablePan = true;
+    
+    // Mobile-specific touch settings
+    if (isMobile) {
+      controls.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+      };
+      controls.enableKeys = false; // Disable keyboard on mobile
+      controls.zoomSpeed = 0.6; // Slower zoom for better control
+      controls.rotateSpeed = 0.8; // Slightly slower rotation
+      controls.panSpeed = 0.8; // Slower pan for precision
+    }
 
     // Enhanced lighting system for consistent light theme
     const amb = new THREE.AmbientLight('#f0f4f8', 0.8);
@@ -534,8 +563,9 @@ function makeScene(){
     fillLight.position.set(-2, -2, -3);
     scene.add(fillLight);
 
-    // Enhanced unit sphere with premium materials for better roundness
-    const geom = new THREE.SphereGeometry(1, 256, 256); // Ultra-high resolution for smoothness
+    // Mobile-optimized sphere geometry
+    const sphereDetail = isMobile ? 128 : 256; // Reduced detail on mobile
+    const geom = new THREE.SphereGeometry(1, sphereDetail, sphereDetail);
     
     // Main sphere with premium glass-like material
     const mat = new THREE.MeshPhysicalMaterial({
@@ -557,7 +587,8 @@ function makeScene(){
     scene.add(sphereMesh);
     
     // Enhanced wireframe with university blue theme
-    const wireframeGeom = new THREE.SphereGeometry(1.001, 64, 64);
+    const wireframeDetail = isMobile ? 32 : 64; // Reduced wireframe detail on mobile
+    const wireframeGeom = new THREE.SphereGeometry(1.001, wireframeDetail, wireframeDetail);
     const wireframeMat = new THREE.MeshBasicMaterial({
       color: 0x2E4BC1, // University blue
       wireframe: true,
@@ -569,7 +600,8 @@ function makeScene(){
     scene.add(wireframeMesh);
     
     // Premium rim lighting with university colors
-    const rimGeom = new THREE.SphereGeometry(1.004, 96, 96);
+    const rimDetail = isMobile ? 48 : 96; // Reduced rim detail on mobile
+    const rimGeom = new THREE.SphereGeometry(1.004, rimDetail, rimDetail);
     const rimMat = new THREE.MeshBasicMaterial({
       color: 0x1E3A8A,
       transparent: true,
@@ -582,16 +614,33 @@ function makeScene(){
     pointGroup = new THREE.Group();
     scene.add(pointGroup);
 
-    // mean arrows (draggable along sphere)
+    // Mobile-optimized mean arrows (larger and more visible)
     for (let i=0;i<4;i++){
       const col = classColors[i];
       const dir = means[i].clone();
-      const arrow = new THREE.ArrowHelper(dir.clone(), new THREE.Vector3(0,0,0), 1.2, col.getHex());
+      const arrowLength = isMobile ? 1.4 : 1.2; // Longer arrows on mobile
+      const arrowHeadLength = isMobile ? 0.3 : 0.2; // Larger arrow heads on mobile
+      const arrowHeadWidth = isMobile ? 0.2 : 0.1; // Wider arrow heads on mobile
+      
+      const arrow = new THREE.ArrowHelper(
+        dir.clone(), 
+        new THREE.Vector3(0,0,0), 
+        arrowLength, 
+        col.getHex(),
+        arrowHeadLength,
+        arrowHeadWidth
+      );
+      
+      // Make arrow lines thicker on mobile
+      if (isMobile && arrow.line && arrow.line.material) {
+        arrow.line.material.linewidth = 3;
+      }
+      
       meanArrows.push(arrow);
       scene.add(arrow);
     }
     
-    console.log('✅ Scene created with', meanArrows.length, 'arrows');
+    console.log('✅ Scene created with mobile optimizations and', meanArrows.length, 'arrows');
   } catch (error) {
     console.error('❌ Error creating scene:', error);
     throw error;
@@ -666,17 +715,97 @@ function updateMeanArrows(){
   }
 }
 
-// Simple drag along sphere for mean arrows
+// Touch and mouse interaction handling - mobile optimized
 let dragging = false, dragIndex = -1;
-function onMouseDown(e){
-  const {x,y, hitIdx} = pickArrow(e.clientX, e.clientY);
-  if (hitIdx>=0){ dragging = true; dragIndex=hitIdx; controls.enabled = false; }
+let lastTouchTime = 0;
+
+function onPointerDown(e){
+  // Handle both mouse and touch events
+  e.preventDefault();
+  
+  const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+  const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+  
+  const {x, y, hitIdx} = pickArrow(clientX, clientY);
+  if (hitIdx >= 0){ 
+    dragging = true; 
+    dragIndex = hitIdx; 
+    controls.enabled = false;
+    
+    // Visual feedback - make arrow brighter when dragging
+    if (meanArrows[hitIdx]) {
+      const arrow = meanArrows[hitIdx];
+      arrow.setColor(0xffffff); // Make it white/bright when dragging
+    }
+    
+    // Add haptic feedback on mobile
+    if (navigator.vibrate && e.touches) {
+      navigator.vibrate(50); // Short vibration feedback
+    }
+    
+    // Prevent touch scrolling
+    if (e.touches) {
+      document.body.style.overflow = 'hidden';
+    }
+    
+    console.log(`🎯 Started dragging arrow ${hitIdx}`);
+  }
 }
-function onMouseUp(){ dragging=false; dragIndex=-1; controls.enabled = true; }
-function onMouseMove(e){
+
+function onPointerUp(e){ 
+  e.preventDefault();
+  
+  // Restore original arrow color
+  if (dragging && dragIndex >= 0 && meanArrows[dragIndex]) {
+    const arrow = meanArrows[dragIndex];
+    arrow.setColor(classColors[dragIndex].getHex()); // Restore original color
+  }
+  
+  dragging = false; 
+  dragIndex = -1; 
+  controls.enabled = true;
+  
+  // Re-enable scrolling
+  document.body.style.overflow = '';
+  
+  console.log('🎯 Stopped dragging');
+}
+
+function onPointerMove(e){
   if (!dragging) return;
-  const p = ndcToSphere(e.clientX, e.clientY);
-  if (p){ means[dragIndex] = p; updateMeanArrows(); }
+  e.preventDefault();
+  
+  const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+  const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+  
+  const p = ndcToSphere(clientX, clientY);
+  if (p){ 
+    means[dragIndex] = p; 
+    updateMeanArrows(); 
+  }
+}
+
+// Touch-specific handlers
+function onTouchStart(e){
+  const currentTime = Date.now();
+  const timeDiff = currentTime - lastTouchTime;
+  
+  // Handle double tap
+  if (timeDiff < 300 && timeDiff > 0) {
+    // Double tap detected - could add special functionality here
+    console.log('Double tap detected');
+  }
+  
+  lastTouchTime = currentTime;
+  onPointerDown(e);
+}
+
+function onTouchEnd(e){
+  onPointerUp(e);
+}
+
+function onTouchMove(e){
+  onPointerMove(e);
 }
 
 function ndcToSphere(clientX, clientY){
@@ -693,19 +822,31 @@ function ndcToSphere(clientX, clientY){
 }
 
 function pickArrow(clientX, clientY){
-  // naive pick by projecting directions; fast and sufficient
+  // Enhanced picking for touch devices with much larger hit areas
   const rect = renderer.domElement.getBoundingClientRect();
   const x = ((clientX - rect.left) / rect.width) * 2 - 1;
   const y = -((clientY - rect.top) / rect.height) * 2 + 1;
   const proj = new THREE.Vector3();
-  let best=-1, bestD=1e9;
-  for (let i=0;i<means.length;i++){
+  let best = -1, bestD = 1e9;
+  
+  // Much larger hit area for mobile devices
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const hitThreshold = isMobile ? 0.15 : 0.08; // Much larger touch targets on mobile
+  
+  for (let i = 0; i < means.length; i++){
     proj.copy(means[i]).project(camera);
     const dx = proj.x - x, dy = proj.y - y;
     const d = dx*dx + dy*dy;
-    if (d < bestD){ bestD=d; best=i; }
+    if (d < bestD){ 
+      bestD = d; 
+      best = i; 
+    }
   }
-  if (bestD < 0.05) return {x, y, hitIdx: best};
+  
+  if (bestD < hitThreshold) {
+    console.log(`🎯 Arrow ${best} picked on ${isMobile ? 'mobile' : 'desktop'} (distance: ${Math.sqrt(bestD).toFixed(3)})`);
+    return {x, y, hitIdx: best};
+  }
   return {x, y, hitIdx: -1};
 }
 
@@ -840,11 +981,31 @@ function setUI(){
 
     updateButtons();
 
+    // Enhanced event binding for mobile and desktop
     if (renderer && renderer.domElement) {
-      renderer.domElement.addEventListener('mousedown', onMouseDown);
-      window.addEventListener('mouseup', onMouseUp);
-      window.addEventListener('mousemove', onMouseMove);
-      console.log('✅ Mouse events bound');
+      const canvas = renderer.domElement;
+      
+      // Mouse events (desktop)
+      canvas.addEventListener('mousedown', onPointerDown, {passive: false});
+      window.addEventListener('mouseup', onPointerUp, {passive: false});
+      window.addEventListener('mousemove', onPointerMove, {passive: false});
+      
+      // Touch events (mobile)
+      canvas.addEventListener('touchstart', onTouchStart, {passive: false});
+      canvas.addEventListener('touchend', onTouchEnd, {passive: false});
+      canvas.addEventListener('touchmove', onTouchMove, {passive: false});
+      
+      // Prevent context menu on long press
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+      
+      // Prevent zoom on double tap
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      }, {passive: false});
+      
+      console.log('✅ Enhanced mobile and desktop events bound');
     }
     
     console.log('✅ UI initialized');
@@ -861,30 +1022,51 @@ function syncMeshes(){
 }
 
 // ======= Main Loop =======
-function animate(){
+let lastFrameTime = 0;
+let frameCount = 0;
+
+function animate(currentTime = 0){
   try {
     requestAnimationFrame(animate);
+    
+    // Mobile optimization: throttle frame rate on slower devices
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const targetFPS = isMobile ? 30 : 60; // Lower FPS on mobile for better performance
+    const frameInterval = 1000 / targetFPS;
+    
+    if (currentTime - lastFrameTime < frameInterval) {
+      return; // Skip this frame
+    }
+    
+    lastFrameTime = currentTime;
+    frameCount++;
     
     if (controls) {
       controls.update();
     }
     
     if (state.running && points && points.length > 0) { 
-      stepPoints(1); 
+      // Reduce computation frequency on mobile
+      const computationFrequency = isMobile ? 0.5 : 1.0;
       
-      // Increment time step counter
-      state.timeStep++;
-      
-      // Update means much less frequently to create chasing effect
-      // Points update every frame, means update every ~50 frames
-      if (Math.random() < 0.02) {
-        updateMeans();
+      if (Math.random() < computationFrequency) {
+        stepPoints(1); 
+        
+        // Increment time step counter
+        state.timeStep++;
+        
+        // Update means much less frequently to create chasing effect
+        // Points update every frame, means update every ~50 frames
+        if (Math.random() < 0.02) {
+          updateMeans();
+        }
+        
+        syncMeshes(); 
       }
       
-      syncMeshes(); 
-      
-      // Update metrics every 10 frames to reduce overhead
-      if (Math.random() < 0.1) {
+      // Update metrics less frequently on mobile
+      const metricsUpdateFrequency = isMobile ? 0.05 : 0.1;
+      if (Math.random() < metricsUpdateFrequency) {
         updateMetrics(); 
       }
     }
@@ -892,6 +1074,12 @@ function animate(){
     if (renderer && scene && camera) {
       renderer.render(scene, camera);
     }
+    
+    // Performance monitoring
+    if (frameCount % 300 === 0) { // Log every 300 frames
+      console.log(`📊 Performance: Running at ~${targetFPS}fps target`);
+    }
+    
   } catch (error) {
     console.error('❌ Error in animation loop:', error);
     // Continue the loop even if there's an error
