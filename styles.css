@@ -750,6 +750,20 @@ button.secondary:hover {
   font-weight: 600;
 }
 
+.iteration-display {
+  margin-top: 8px;
+  padding: 4px 0;
+  font-size: 11px;
+  color: var(--fg);
+  border-top: 1px solid var(--edge);
+  padding-top: 8px;
+}
+
+.iteration-display strong {
+  color: var(--primary-blue);
+  font-weight: 600;
+}
+
 .viewport { 
   position: relative; 
   height: 100%; 

@@ -94,12 +94,12 @@ const classColors = [
 // dataset shapes for fun (▲, ■, ● simulated via sprite shapes)
 const datasetMarkers = ['triangle', 'square', 'circle'];
 
-// Class means (unit directions) - start closer together for better visualization
+// Class means (unit directions) - start separated for immediate visualization
 const means = [
-  new THREE.Vector3(0.5, 0.5, 0.707).normalize(),  // Start in similar region
-  new THREE.Vector3(0.6, 0.4, 0.693).normalize(),  // Close to first
-  new THREE.Vector3(0.4, 0.6, 0.693).normalize(),  // Close to others
-  new THREE.Vector3(0.7, 0.3, 0.641).normalize(),  // Slightly different
+  new THREE.Vector3(1, 1, 1).normalize(),     // Positive octant
+  new THREE.Vector3(-1, -1, -1).normalize(),  // Opposite corner
+  new THREE.Vector3(1, -1, 1).normalize(),    // Another corner  
+  new THREE.Vector3(-1, 1, -1).normalize(),   // Fourth corner
 ];
 
 // Points: each has position, classId, datasetId
@@ -247,34 +247,8 @@ function computeMeanGradients() {
 
 // Function to automatically separate means to opposite positions after time threshold
 function autoSeparateMeans() {
-  if (state.timeStep >= 20 && !state.separationTriggered) {
-    console.log('🎯 Triggering automatic mean separation after 20 time steps');
-    state.separationTriggered = true;
-    
-    // Define target positions for 4 classes - spread them to opposite corners of sphere
-    const targetPositions = [
-      new THREE.Vector3(1, 1, 1).normalize(),     // Positive octant
-      new THREE.Vector3(-1, -1, -1).normalize(),  // Opposite corner
-      new THREE.Vector3(1, -1, 1).normalize(),    // Another corner
-      new THREE.Vector3(-1, 1, -1).normalize(),   // Fourth corner
-    ];
-    
-    // Gradually move means toward target positions
-    for (let c = 0; c < state.classes; c++) {
-      if (c < targetPositions.length) {
-        const target = targetPositions[c];
-        const current = means[c];
-        
-        // Use spherical interpolation for smooth movement
-        const t = 0.05; // Slow interpolation factor
-        means[c] = slerp(current, target, t);
-        means[c].normalize();
-      }
-    }
-    
-    updateMeanArrows();
-    return true; // Indicates separation is happening
-  }
+  // Since means are already separated from the beginning, we don't need auto-separation
+  // This function is kept for compatibility but returns false to skip separation
   return false;
 }
 
@@ -381,18 +355,18 @@ function stepPoints(steps=1){
     for (const pt of points){
       const g = gradApprox(pt);
       
-      // Enhanced attraction toward class mean
+      // Much slower and gentler attraction toward class mean
       const classMean = means[pt.cls];
-      const attractionForce = classMean.clone().sub(pt.pos).multiplyScalar(0.08); // Strong attraction
+      const attractionForce = classMean.clone().sub(pt.pos).multiplyScalar(0.02); // Much slower attraction
       
-      // Reduced noise for more directed movement
-      const noise = randomUnitVec().multiplyScalar(state.noise * 0.5);
+      // Reduced noise for smoother movement
+      const noise = randomUnitVec().multiplyScalar(state.noise * 0.2); // Much less noise
       
-      // Combined forces: gradient descent + attraction to class mean + noise
+      // Gentle combined forces with smooth transitions
       const newPos = pt.pos.clone()
-        .addScaledVector(g, -0.02)  // Reduced gradient influence
-        .add(attractionForce)       // Strong class mean attraction
-        .add(noise);                // Reduced noise
+        .addScaledVector(g, -0.008)  // Much reduced gradient influence
+        .add(attractionForce)        // Slow gentle attraction
+        .add(noise);                 // Minimal noise
         
       pt.pos = projectToSphere(newPos);
     }
@@ -468,6 +442,12 @@ function updateMetrics(){
       <div>d_inter (intra-class): ${dinter.toFixed(4)}</div>
       <div>DQ ratio: ${DQ.toFixed(4)}</div>
     `;
+  }
+  
+  // Update iteration count
+  const iterationEl = document.getElementById('iterationCount');
+  if (iterationEl) {
+    iterationEl.textContent = state.timeStep;
   }
 }
 
@@ -550,62 +530,67 @@ function makeScene(){
       controls.panSpeed = 0.8; // Slower pan for precision
     }
 
-    // Enhanced lighting system for consistent light theme
-    const amb = new THREE.AmbientLight('#f0f4f8', 0.8);
+    // Enhanced lighting system for better data point visibility
+    const amb = new THREE.AmbientLight('#f8fafc', 0.9); // Brighter ambient
     scene.add(amb);
     
-    const dir = new THREE.DirectionalLight('#ffffff', 0.8);
+    const dir = new THREE.DirectionalLight('#ffffff', 0.6); // Softer directional
     dir.position.set(3, 3, 5);
     scene.add(dir);
     
     // Additional fill light for better sphere visibility
-    const fillLight = new THREE.DirectionalLight('#e2e8f0', 0.3);
+    const fillLight = new THREE.DirectionalLight('#f1f5f9', 0.4); // Brighter fill
     fillLight.position.set(-2, -2, -3);
     scene.add(fillLight);
+    
+    // Back light for rim effect
+    const backLight = new THREE.DirectionalLight('#e2e8f0', 0.3);
+    backLight.position.set(0, 0, -5);
+    scene.add(backLight);
 
     // Mobile-optimized sphere geometry
     const sphereDetail = isMobile ? 128 : 256; // Reduced detail on mobile
     const geom = new THREE.SphereGeometry(1, sphereDetail, sphereDetail);
     
-    // Main sphere with premium glass-like material
+    // Main sphere with improved visibility for data points
     const mat = new THREE.MeshPhysicalMaterial({
-      color: 0x87CEEB, // Sky blue
-      metalness: 0.05,
-      roughness: 0.1,
+      color: 0xE8F4FD, // Lighter blue for better contrast
+      metalness: 0.02,
+      roughness: 0.3, // More roughness for better point visibility
       transparent: true,
-      opacity: 0.15,
+      opacity: 0.08, // Much more transparent
       side: THREE.DoubleSide,
-      envMapIntensity: 0.3,
-      transmission: 0.1,
-      thickness: 0.5,
-      clearcoat: 0.3,
-      clearcoatRoughness: 0.2,
-      ior: 1.4,
-      reflectivity: 0.2
+      envMapIntensity: 0.1,
+      transmission: 0.05,
+      thickness: 0.2,
+      clearcoat: 0.1,
+      clearcoatRoughness: 0.5,
+      ior: 1.2,
+      reflectivity: 0.1
     });
     sphereMesh = new THREE.Mesh(geom, mat);
     scene.add(sphereMesh);
     
-    // Enhanced wireframe with university blue theme
+    // Enhanced wireframe with better visibility
     const wireframeDetail = isMobile ? 32 : 64; // Reduced wireframe detail on mobile
     const wireframeGeom = new THREE.SphereGeometry(1.001, wireframeDetail, wireframeDetail);
     const wireframeMat = new THREE.MeshBasicMaterial({
-      color: 0x2E4BC1, // University blue
+      color: 0x4A90E2, // Lighter blue for better contrast
       wireframe: true,
       transparent: true,
-      opacity: 0.4,
-      linewidth: 1.5
+      opacity: 0.25, // Slightly more visible
+      linewidth: 1.2
     });
     const wireframeMesh = new THREE.Mesh(wireframeGeom, wireframeMat);
     scene.add(wireframeMesh);
     
-    // Premium rim lighting with university colors
+    // Subtle rim lighting
     const rimDetail = isMobile ? 48 : 96; // Reduced rim detail on mobile
     const rimGeom = new THREE.SphereGeometry(1.004, rimDetail, rimDetail);
     const rimMat = new THREE.MeshBasicMaterial({
-      color: 0x1E3A8A,
+      color: 0x6B9DDE, // Softer blue
       transparent: true,
-      opacity: 0.08,
+      opacity: 0.05, // Very subtle
       side: THREE.BackSide
     });
     const rimMesh = new THREE.Mesh(rimGeom, rimMat);
@@ -648,39 +633,71 @@ function makeScene(){
 }
 
 function spriteFor(ds, color){
-  const size = 44; // px
+  const size = 56; // Larger size for better visibility
   const cvs = document.createElement('canvas');
   cvs.width = cvs.height = size;
   const ctx = cvs.getContext('2d');
+  
+  // Anti-aliasing for smoother sprites
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  
   ctx.clearRect(0,0,size,size);
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 2;
+  
+  // Enhanced outline for better visibility
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 2.5;
   ctx.fillStyle = color.getStyle();
-  const r = 16;
+  
+  const r = 18; // Larger radius
   ctx.translate(size/2, size/2);
+  
+  // Add subtle shadow for depth
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+  ctx.shadowBlur = 3;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+  
   if (ds===0){
-    // triangle
+    // triangle - more pronounced
     ctx.beginPath();
     ctx.moveTo(-r, r*0.8);
     ctx.lineTo(0, -r);
     ctx.lineTo(r, r*0.8);
     ctx.closePath();
-    ctx.fill(); ctx.stroke();
+    ctx.fill(); 
+    ctx.shadowColor = 'transparent'; // Remove shadow for stroke
+    ctx.stroke();
   } else if (ds===1){
-    // square
+    // square - slightly rounded corners
     ctx.beginPath();
-    ctx.rect(-r, -r, 2*r, 2*r);
-    ctx.fill(); ctx.stroke();
+    ctx.roundRect(-r, -r, 2*r, 2*r, 2);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.stroke();
   } else {
-    // circle
+    // circle - perfect circle
     ctx.beginPath();
     ctx.arc(0,0,r,0,Math.PI*2);
-    ctx.fill(); ctx.stroke();
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.stroke();
   }
+  
   const tex = new THREE.CanvasTexture(cvs);
-  const mat = new THREE.SpriteMaterial({map: tex});
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  
+  const mat = new THREE.SpriteMaterial({
+    map: tex,
+    transparent: true,
+    alphaTest: 0.1,
+    sizeAttenuation: true
+  });
+  
   const spr = new THREE.Sprite(mat);
-  spr.scale.set(0.06, 0.06, 0.06);
+  spr.scale.set(0.08, 0.08, 0.08); // Slightly larger for better visibility
   return spr;
 }
 
@@ -956,7 +973,7 @@ function setUI(){
       initPoints();
       rebuildPointMeshes();
       updateMetrics();
-      console.log('🔄 Points reinitialized - automatic separation will trigger after 20 steps');
+      console.log('🔄 Points reinitialized - means already separated from start');
     });
 
     btnStart.addEventListener('click', ()=>{
@@ -970,7 +987,7 @@ function setUI(){
       
       state.running = true;
       updateButtons();
-      console.log('▶️ Animation started - automatic separation will trigger after 20 steps');
+      console.log('▶️ Animation started - means already separated from beginning');
     });
 
     btnPause.addEventListener('click', ()=>{
@@ -1017,7 +1034,18 @@ function setUI(){
 
 function syncMeshes(){
   for (const pt of points){
-    if (pt.mesh) pt.mesh.position.copy(pt.pos);
+    if (pt.mesh) {
+      // Smooth interpolation for position updates
+      const currentPos = pt.mesh.position;
+      const targetPos = pt.pos;
+      
+      // Linear interpolation for smooth movement (lerp)
+      const smoothFactor = 0.15; // Smooth transition factor
+      currentPos.lerp(targetPos, smoothFactor);
+      
+      // Ensure mesh stays on sphere surface
+      currentPos.normalize();
+    }
   }
 }
 
@@ -1046,26 +1074,29 @@ function animate(currentTime = 0){
     }
     
     if (state.running && points && points.length > 0) { 
-      // Reduce computation frequency on mobile
-      const computationFrequency = isMobile ? 0.5 : 1.0;
+      // Reduce computation frequency for smoother movement
+      const computationFrequency = isMobile ? 0.3 : 0.6; // Much slower updates
       
       if (Math.random() < computationFrequency) {
         stepPoints(1); 
         
-        // Increment time step counter
-        state.timeStep++;
-        
-        // Update means much less frequently to create chasing effect
-        // Points update every frame, means update every ~50 frames
-        if (Math.random() < 0.02) {
-          updateMeans();
+        // Increment time step counter less frequently for smoother visualization
+        if (Math.random() < 0.5) { // Only increment every other computation
+          state.timeStep++;
         }
         
-        syncMeshes(); 
+        // Update means much less frequently to create chasing effect
+        // Points update every frame, means update very rarely
+        if (Math.random() < 0.01) { // Very infrequent mean updates
+          updateMeans();
+        }
       }
       
+      // Always sync meshes for smooth animation
+      syncMeshes(); 
+      
       // Update metrics less frequently on mobile
-      const metricsUpdateFrequency = isMobile ? 0.05 : 0.1;
+      const metricsUpdateFrequency = isMobile ? 0.02 : 0.05; // Less frequent updates
       if (Math.random() < metricsUpdateFrequency) {
         updateMetrics(); 
       }
