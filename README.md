@@ -23,9 +23,4 @@ Open `hypersphere/index.html` in your browser. If the browser blocks local file 
 # from the project root or hypersphere folder
 python -m http.server 8000
 # then open http://localhost:8000/hypersphere/index.html
-```
-
-## Notes
-- vMF sampling uses an approximate Wood method for S^2; suitable for visualization.
-- Optimization uses a simple finite-difference gradient projected to the tangent plane, with re-projection to the sphere.
-- This is an educational visualization; not a production HVAE trainer.
+``
